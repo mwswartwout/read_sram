@@ -46,69 +46,143 @@
  */
 
 #include <stdio.h>
+#include <string.h>
 #include <unistd.h>
 #include "platform.h"
 #include "ff.h"
 #include "xil_io.h"
 #include "xparameters.h"
+#include "xtime_l.h"
 
+void handle_fresult(FRESULT result) {
+	switch (result) {
+		case FR_OK:
+			print("FRESULT = FR_OK\n\r");
+			break;
+		case FR_DISK_ERR:
+			print("FRESULT = FR_DISK_ERR\n\r");
+			break;
+		case FR_INT_ERR:
+			print("FRESULT = FR_INT_ERR\n\r");
+			break;
+		case FR_NOT_READY:
+			print("FRESULT = FR_NOT_READY\n\r");
+			break;
+		case FR_NO_FILE:
+			print("FRESULT = FR_NO_FILE\n\r");
+			break;
+		case FR_NO_PATH:
+			print("FRESULT = FR_NO_PATH\n\r");
+			break;
+		case FR_INVALID_NAME:
+			print("FRESULT = FR_INVALID_NAME\n\r");
+			break;
+		case FR_DENIED:
+			print("FRESULT = FR_DENIED\n\r");
+			break;
+		case FR_EXIST:
+			print("FRESULT = FR_EXIST\n\r");
+			break;
+		case FR_INVALID_OBJECT:
+			print("FRESULT = FR_INVALID_OBJECT\n\r");
+			break;
+		case FR_WRITE_PROTECTED:
+			print("FRESULT = FR_WRITE_PROTECTED\n\r");
+			break;
+		case FR_INVALID_DRIVE:
+			print("FRESULT = FR_INVALID_DRIVE\n\r");
+			break;
+		case FR_NOT_ENABLED:
+			print("FRESULT = FR_NOT_ENABLED\n\r");
+			break;
+		case FR_NO_FILESYSTEM:
+			print("FRESULT = FR_NO_FILESYSTEM\n\r");
+			break;
+		case FR_MKFS_ABORTED:
+			print("FRESULT = FR_MKFS_ABORTED\n\r");
+			break;
+		case FR_TIMEOUT:
+			print("FRESULT = FR_TIMEOUT\n\r");
+			break;
+		case FR_LOCKED:
+			print("FRESULT = FR_LOCKED\n\r");
+			break;
+		case FR_NOT_ENOUGH_CORE:
+			print("FRESULT = FR_NOT_ENOUGH_CORE\n\r");
+			break;
+		case FR_TOO_MANY_OPEN_FILES:
+			print("FRESULT = FR_TOO_MANY_OPEN_FILES\n\r");
+			break;
+		case FR_INVALID_PARAMETER:
+			print("FRESULT = FR_INVALID_PARAMETER\n\r");
+			break;
+		default:
+			print("Returned FRESULT value is unknown\n\r");
+	}
+}
 int main()
 {
 	print("About to init_platform\n\r");
     init_platform();
-    print("Hello World\n\r");
+    //print("Hello World\n\r");
 
-    print("Attempting to mount file system...\n\r");
+    print("Mounting file system...\n\r");
     FATFS fs; // File system object
     FRESULT status; // FatFs return code
 
     status = f_mount(&fs, "", 0);
-    switch (status) {
-		case FR_OK:
-			print("Mounting successful!\n\r");
-			break;
-		case FR_INVALID_DRIVE:
-			print("Return code FR_INVALID_DRIVE\n\r");
-		case FR_DISK_ERR:
-			print("Return code FR_DISK_ERR\n\r");
-			break;
-		case FR_NOT_READY:
-			print("Return code FR_NOT_READY\n\r");
-			break;
-		case FR_NO_FILESYSTEM:
-			print("Return code FR_NO_FILESYSTEM\n\r");
-			break;
-		default:
-			print("Return code was not a possible return value from f_mount\n\r");
+    if (status) {
+    	handle_fresult(status);
     }
-
-    FIL file; // File object
-    char line[82]; // Line buffer
-    print("Opening hello.txt...\n\r");
-    status = f_open(&file, "hello.txt", FA_READ);
-    if (status == FR_OK) {
-    	print("Successfully opened file!\n\r");
-    	while (f_gets(line, sizeof line, &file)) {
-    		print(line);
-    		print("\r");
+    else {
+    	if (_FS_READONLY) {
+    		print("Warning: File system is in read-only mode");
     	}
-    	f_close(&file);
+
+		FIL file; // File object
+		print("Opening file to record SRAM values...\n\r");
+		status = f_open(&file, "hello.txt", FA_WRITE);
+		if (status) {
+			handle_fresult(status);
+		}
+		else {
+			print("Successfully opened file!\n\r");
+			print("Right now it contains:\n\r");
+			char line[82];
+			while (f_gets(line, sizeof(line), &file)) {
+				print(line);
+			}
+
+			//char line[82]; // Line buffer
+			UINT btw;
+			UINT *bw;
+			int addr = XPAR_PS7_RAM_0_S_AXI_BASEADDR;
+			int result;
+			char header[100];
+			strcpy(header, "Address Value");
+			status = f_write(&file, header, sizeof(header), bw);
+			if (status) {
+				handle_fresult(status);
+			}
+			/*while (addr < XPAR_PS7_RAM_0_S_AXI_HIGHADDR / 1000) {
+				result = Xil_In32(addr);
+				char line[71];
+				snprintf(line, sizeof(line), "Address: %x; Value: %x\n", addr, result);
+				f_write(&file, line, sizeof(line), bw);
+				if (*bw < sizeof(line)) {
+					print("SD card is full!\n\r");
+					break;
+				}
+				addr += 4;
+				//sleep(1);
+			}*/
+			f_close(&file);
+		}
+		f_mount(NULL, "", 0);
     }
 
-    int i = 0;
-    int addr = XPAR_PS7_RAM_0_S_AXI_BASEADDR;
-    int result;
-    while (addr < XPAR_PS7_RAM_0_S_AXI_HIGHADDR) {
-    	result = Xil_In32(addr);
-    	print("Address: ");
-    	printf("%x;", addr);
-    	print("Value: ");
-    	printf("%x\n\r", result);
-    	addr += 4;
-    	//sleep(1);
-    }
-    print("All done, cleaning up now...\n\r");
-    cleanup_platform();
-    print("Exiting...\n\r");
+	print("All done, cleaning up now...\n\r");
+	cleanup_platform();
+	print("Exiting...\n\r\n\r");
     return 0;
 }
