@@ -30,3 +30,16 @@
 
 # Debug files
 *.dSYM/
+
+# Eclipse
+.project
+.cproject
+.settings
+
+# Executable Directories
+Debug
+Release
+
+# Boot Images
+*.bin
+*.mcs
