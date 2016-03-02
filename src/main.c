@@ -46,10 +46,11 @@
  */
 
 #include <stdio.h>
+#include <unistd.h>
 #include "platform.h"
-#include <ff.h>
-
-void print(char *str);
+#include "ff.h"
+#include "xil_io.h"
+#include "xparameters.h"
 
 int main()
 {
@@ -94,6 +95,18 @@ int main()
     	f_close(&file);
     }
 
+    int i = 0;
+    int addr = XPAR_PS7_RAM_0_S_AXI_BASEADDR;
+    int result;
+    while (addr < XPAR_PS7_RAM_0_S_AXI_HIGHADDR) {
+    	result = Xil_In32(addr);
+    	print("Address: ");
+    	printf("%x;", addr);
+    	print("Value: ");
+    	printf("%x\n\r", result);
+    	addr += 4;
+    	//sleep(1);
+    }
     print("All done, cleaning up now...\n\r");
     cleanup_platform();
     print("Exiting...\n\r");
